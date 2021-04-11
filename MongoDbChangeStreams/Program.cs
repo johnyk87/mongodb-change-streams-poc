@@ -1,6 +1,7 @@
 ﻿namespace MongoDbChangeStreams
 {
     using System;
+    using System.Linq;
     using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
@@ -60,7 +61,17 @@
                     await cursor.ForEachAsync(
                         change =>
                         {
-                            Console.WriteLine($"Received item {change.OperationType}: " + JsonSerializer.Serialize(change.FullDocument));
+                            var itemId = change.DocumentKey
+                                .Where(k => k.Name == "_id")
+                                .Select(k => k.Value?.AsGuid)
+                                .FirstOrDefault()
+                                ?? Guid.Empty;
+
+                            var details = change.FullDocument == null
+                                ? itemId.ToString()
+                                : JsonSerializer.Serialize(change.FullDocument);
+
+                            Console.WriteLine($"Received item {change.OperationType}: " + details);
                         },
                         cancellationToken: cancellationToken);
                 }
@@ -81,8 +92,6 @@
         {
             Console.WriteLine($"Entering {nameof(RunInsertAsync)}.");
 
-            //return;
-
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
@@ -101,6 +110,21 @@
                         i => i.Id == item.Id, updateBuilder, UpsertOptions, cancellationToken);
 
                     Console.WriteLine("Inserted item: " + JsonSerializer.Serialize(item));
+
+                    item.Name = Guid.NewGuid().ToString();
+
+                    updateBuilder = Builders<Item>.Update
+                        .SetOnInsert(entry => entry.Id, item.Id)
+                        .Set(entry => entry.Name, item.Name);
+
+                    await ItemCollection.UpdateOneAsync(
+                        i => i.Id == item.Id, updateBuilder, UpsertOptions, cancellationToken);
+
+                    Console.WriteLine("Updated item: " + JsonSerializer.Serialize(item));
+
+                    await ItemCollection.DeleteOneAsync(i => i.Id == item.Id, cancellationToken);
+
+                    Console.WriteLine("Deleted item: " + item.Id);
 
                     await Task.Delay(1000, cancellationToken);
                 }
