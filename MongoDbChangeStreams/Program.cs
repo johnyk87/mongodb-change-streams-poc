@@ -4,6 +4,7 @@
     using System.Text.Json;
     using System.Threading;
     using System.Threading.Tasks;
+    using MongoDB.Bson;
     using MongoDB.Driver;
 
     public static class Program
@@ -19,18 +20,20 @@
         private static readonly ChangeStreamOptions WatchOptions = new ChangeStreamOptions
         {
             FullDocument = ChangeStreamFullDocumentOption.UpdateLookup,
+            StartAtOperationTime = new BsonTimestamp(0),
         };
 
         public static async Task Main()
         {
             var cts = new CancellationTokenSource();
+            Console.CancelKeyPress += (_, __) => cts.Cancel();
+            Console.WriteLine("Press <CTRL+C> to terminate...");
 
-            var streamTask = Task.Run(() => RunStreamAsync(cts.Token), cts.Token);
             var insertTask = Task.Run(() => RunInsertAsync(cts.Token), cts.Token);
 
-            Console.WriteLine("Press <ENTER> to terminate...");
-            Console.ReadLine();
-            cts.Cancel();
+            await Task.Delay(5000, cts.Token);
+
+            var streamTask = Task.Run(() => RunStreamAsync(cts.Token), cts.Token);
 
             await Task.WhenAll(streamTask, insertTask);
         }
