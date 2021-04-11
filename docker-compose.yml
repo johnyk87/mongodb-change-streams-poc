@@ -1,0 +1,19 @@
+version: '3.4'
+
+services:
+  mongo:
+    image: mongo_change_streams
+    container_name: mongo
+    hostname: mongo
+    build:
+      context: init/mongo
+      dockerfile: dockerfile
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: adminpasswd
+      MONGO_INITDB_DATABASE: CHANGE_STREAMS
+      MONGO_INITDB_USERNAME: mongo
+      MONGO_INITDB_PASSWORD: mongo
+    restart: unless-stopped
+    ports:
+      - 27017:27017
